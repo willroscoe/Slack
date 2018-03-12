@@ -36,6 +36,19 @@ namespace Utils
             PostMessage(args);
         }
 
+        public async Task PostMessageAsync(string token, string text, string username = null, string channel = null)
+        {
+            Arguments args = new Arguments()
+            {
+                Token = token,
+                Channel = channel,
+                Username = username,
+                Text = text
+            };
+
+            await PostMessageAsync(args);
+        }
+
         private string ToQueryString(Object p)
         {
             List<string> properties = new List<string>();
@@ -49,12 +62,14 @@ namespace Utils
                     {
                         if (propertyInfo.GetValue(p, null) != null)
                         {
-                            properties.Add(string.Format("{0}={1}", JsonProperty != null ? JsonProperty : propertyInfo.Name, HttpUtility.UrlEncode(JsonConvert.SerializeObject(propertyInfo.GetValue(p, null)))));
+                            properties.Add(string.Format("{0}={1}", JsonProperty != null ? JsonProperty : propertyInfo.Name, Uri.EscapeUriString(JsonConvert.SerializeObject(propertyInfo.GetValue(p, null)))));
                         }
-                    }else{
+                    }
+                    else
+                    {
                         if (propertyInfo.GetValue(p, null) != null)
                         {
-                            properties.Add(string.Format("{0}={1}", JsonProperty != null ? JsonProperty : propertyInfo.Name, HttpUtility.UrlEncode(propertyInfo.GetValue(p, null).ToString())));
+                            properties.Add(string.Format("{0}={1}", JsonProperty != null ? JsonProperty : propertyInfo.Name, Uri.EscapeUriString(propertyInfo.GetValue(p, null).ToString())));
                         }
                     }
 
@@ -111,6 +126,21 @@ namespace Utils
             }
         }
 
+        //Post a message using args object
+        public async Task<Response> PostMessageAsync(Arguments args)
+        {
+            //string payloadJson = JsonConvert.SerializeObject(payload);
+            using (WebClient client = new WebClient())
+            {
+                NameValueCollection data = ToQueryNVC(args);
+                var response = await client.UploadValuesTaskAsync(_uri, "POST", data);
+
+                string responseText = _encoding.GetString(response);
+
+                return JsonConvert.DeserializeObject<Response>(responseText);
+            }
+        }
+
     }
 
     public class SlackClientWebhooks
@@ -132,6 +162,27 @@ namespace Utils
             };
             PostMessage(args);
         }
+
+        /// <summary>
+        /// Aysnc Post Message
+        /// </summary>
+        /// <param name="text"></param>
+        /// <param name="username"></param>
+        /// <param name="channel"></param>
+        /// <returns></returns>
+        public async Task PostMessageAsync(string text, string username = null, string channel = null)
+        {
+            Arguments args = new Arguments()
+            {
+                Channel = channel,
+                Username = username,
+                Text = text
+            };
+
+            await PostMessageAsync(args);
+        }
+
+
         //Post a message using a args object
         public void PostMessage(Arguments args)
         {
@@ -145,6 +196,21 @@ namespace Utils
                 string responseText = _encoding.GetString(response);
             }
         }
+
+        //Post a message using a args object
+        public async Task PostMessageAsync(Arguments args)
+        {
+            string argsJson = JsonConvert.SerializeObject(args);
+            using (WebClient client = new WebClient())
+            {
+                NameValueCollection data = new NameValueCollection();
+                data["payload"] = argsJson;
+                var response = await client.UploadValuesTaskAsync(_uri, "POST", data);
+                //The response text is usually "ok"
+                string responseText = _encoding.GetString(response);
+            }
+        }
+
     }
 
     //This classes serializes into the Json payload required by Slack Incoming WebHooks
@@ -218,5 +284,4 @@ namespace Utils
         [JsonProperty("error")]
         public string Error { get; set; }
     }
-
 }
